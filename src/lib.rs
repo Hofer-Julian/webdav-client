@@ -1,3 +1,5 @@
+pub mod dav_resource;
+
 #[cfg(test)]
 mod tests {
     #[test]
