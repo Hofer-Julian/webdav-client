@@ -5,3 +5,6 @@ authors = ["Bilal Elmoussaoui <bil.elmoussaoui@gmail.com>", "Julian Hofer"]
 edition = "2018"
 
 [dependencies]
+isahc = "0.9"
+quick-xml = "0.18"
+thiserror = "1.0"
