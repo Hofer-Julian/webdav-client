@@ -18,7 +18,7 @@ mod tests {
     #[test]
     fn test_something() {
         let base_url = "/remote.php/dav";
-        let m = mock("DELETE", base_url)
+        let m = mock("MKCOL", base_url)
             .with_status(201)
             .with_body("test")
             .create();
@@ -27,7 +27,7 @@ mod tests {
         let dav_resource = DavResource::new(http_client);
         let uri = format!("{}{}", mockito::server_url(), base_url);
         let request = Request::builder()
-            .method("DELETE")
+            .method("MKCOL")
             .uri(uri)
             .body(())
             .unwrap();
