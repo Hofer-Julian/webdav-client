@@ -89,6 +89,17 @@ mod tests {
 
     #[test]
     fn test_basic_utf8() {
-        todo!()
+        let original = Request::builder()
+            .uri("http://example.com")
+            .body(())
+            .unwrap();
+
+        let response = Response::new(());
+        // Test special characters
+        let request = basic_auth(original, &response, "username", Some("paßword"));
+        assert_eq!(
+            request.headers().get(header::AUTHORIZATION).unwrap(),
+            "Basic dXNlcm5hbWU6cGHDn3dvcmQ="
+        );
     }
 }
