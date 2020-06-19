@@ -42,7 +42,7 @@ impl AuthHandler {
 
     pub fn authenticate_request<T>(
         &mut self,
-        mut request: Request<T>,
+        request: Request<T>,
         response: Option<Response<T>>,
     ) -> Result<Request<T>> {
         if let Some(ref domain) = self.domain {
@@ -54,8 +54,19 @@ impl AuthHandler {
             let new_basic_challenge: Option<String> = None;
             let new_digest_challenge: Option<String> = None;
 
-            todo!();
-
+            for header in response.headers().get_all(header::WWW_AUTHENTICATE) {
+                if let Ok(header) = header.to_str() {
+                    if header.starts_with("Basic") {
+                        if self.basic_challenge.is_some() {
+                            warn!("Basic credentials didn't work last time -> aborting");
+                            self.basic_challenge = None;
+                            return Err(Error::Authenticate);
+                        }
+                    } else if header.starts_with("Digest") {
+                        todo!()
+                    }
+                }
+            }
             self.basic_challenge = new_basic_challenge;
             self.digest_challenge = new_digest_challenge;
         } else {
@@ -64,12 +75,11 @@ impl AuthHandler {
                 info!("Trying Basic auth preemptively");
                 self.basic_challenge = Some("Basic".to_string());
             }
-            todo!();
         }
 
         if self.digest_challenge.is_some() {
             info!("Adding Digest authorization request for {}", request.uri());
-            return self.digest_auth(request, self.digest_challenge);
+            return self.digest_auth(request, &self.digest_challenge);
         } else if self.basic_challenge.is_some() {
             info!("Adding Basic authorization request for {}", request.uri());
             return self.basic_auth(request);
@@ -77,13 +87,13 @@ impl AuthHandler {
             warn!("No supported authentication scheme");
         }
 
-        return Err(Error::General);
+        return Err(Error::Authenticate);
     }
 
     pub fn digest_auth<T>(
         &self,
-        mut request: Request<T>,
-        digest_challenge: Option<String>,
+        request: Request<T>,
+        digest_challenge: &Option<String>,
     ) -> Result<Request<T>> {
         unimplemented!()
     }
