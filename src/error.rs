@@ -6,4 +6,6 @@ pub enum Error {
         #[from]
         source: isahc::http::header::InvalidHeaderValue,
     },
+    #[error("General error")]
+    General,
 }
