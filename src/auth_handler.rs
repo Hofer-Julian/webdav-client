@@ -4,7 +4,9 @@ use base64;
 use base64::write::EncoderWriter as Base64Encoder;
 use isahc::http::header;
 use isahc::prelude::*;
+use lazy_static::lazy_static;
 use log::{info, warn};
+use regex::Regex;
 use std::io::Write;
 
 #[derive(Clone, Debug)]
@@ -53,6 +55,9 @@ impl AuthHandler {
             // We are processing a 401 response
             let new_basic_challenge: Option<String> = None;
             let new_digest_challenge: Option<String> = None;
+            lazy_static! {
+                static ref STALE: Regex = Regex::new(r"(?i)stale=true").unwrap();
+            }
 
             for header in response.headers().get_all(header::WWW_AUTHENTICATE) {
                 if let Ok(header) = header.to_str() {
@@ -62,8 +67,10 @@ impl AuthHandler {
                             self.basic_challenge = None;
                             return Err(Error::Authenticate);
                         }
-                    } else if header.starts_with("Digest") {
-                        todo!()
+                    } else if header.starts_with("Digest") && !STALE.is_match(header) {
+                        warn!("Digest credentials didn't work last time and server nonce has not expired -> aborting");
+                        self.digest_challenge = None;
+                        return Err(Error::Authenticate);
                     }
                 }
             }
