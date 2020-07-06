@@ -84,9 +84,9 @@ impl AuthHandler {
             }
         }
 
-        if self.digest_challenge.is_some() {
+        if let Some(ref digest_challenge) = self.digest_challenge {
             info!("Adding Digest authorization request for {}", request.uri());
-            return self.digest_auth(request, &self.digest_challenge);
+            return self.digest_auth(request, &digest_challenge);
         } else if self.basic_challenge.is_some() {
             info!("Adding Basic authorization request for {}", request.uri());
             return self.basic_auth(request);
@@ -100,9 +100,37 @@ impl AuthHandler {
     pub fn digest_auth<T>(
         &self,
         request: Request<T>,
-        digest_challenge: &Option<String>,
+        digest_challenge: &String,
     ) -> Result<Request<T>> {
-        unimplemented!()
+        lazy_static! {
+            static ref REALM: Regex = Regex::new(r#"(?i)realm="([[:ascii:]]+)""#).unwrap();
+            static ref OPAQUE: Regex = Regex::new(r#"(?i)opaque="([[:xdigit:]]+)""#).unwrap();
+            static ref NONCE: Regex = Regex::new(r#"(?i)nonce="([[:xdigit:]]+)""#).unwrap();
+            static ref ALGORITHM: Regex = Regex::new(r#"(?i)algorithm="([[:ascii:]]+)""#).unwrap();
+            static ref QOP: Regex = Regex::new(r#"(?i)qop="([[:ascii:]]+)""#).unwrap();
+        }
+        let mut params = Vec::new();
+        let realm = match REALM.captures(digest_challenge) {
+            Some(capture) => {
+                if let Some(r) = capture.get(1) {
+                    let realm = r.as_str();
+                    params.push(format!("realm={}", Self::quoted_string(realm.to_owned())));
+                    realm
+                } else {
+                    warn! {"No realm provided, aborting Digest auth"};
+                    return Err(Error::Authenticate);
+                }
+            }
+            None => {
+                warn! {"No realm provided, aborting Digest auth"};
+                return Err(Error::Authenticate);
+            }
+        };
+        todo!()
+    }
+
+    fn quoted_string(s: String) -> String {
+        format!(r#""{}""#, s.replace("\"", "\\\""))
     }
 
     pub fn basic_auth<T>(&self, mut request: Request<T>) -> Result<Request<T>> {
