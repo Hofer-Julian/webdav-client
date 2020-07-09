@@ -1,4 +1,6 @@
+use isahc::prelude::*;
 use isahc::HttpClient;
+
 pub struct DavResource {
     pub client: HttpClient,
 }
@@ -9,10 +11,8 @@ impl DavResource {
     }
 }
 
-#[cfg(test)]
 mod tests {
-    use super::DavResource;
-    use isahc::prelude::*;
+    use super::*;
     use mockito::mock;
 
     #[test]
