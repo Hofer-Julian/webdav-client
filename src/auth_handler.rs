@@ -5,7 +5,7 @@ use base64::write::EncoderWriter as Base64Encoder;
 use isahc::http::header;
 use isahc::prelude::*;
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::{debug, info, warn};
 use regex::Regex;
 use std::io::Write;
 
@@ -63,12 +63,12 @@ impl AuthHandler {
                 if let Ok(header) = header.to_str() {
                     if header.starts_with("Basic") {
                         if self.basic_challenge.is_some() {
-                            warn!("Basic credentials didn't work last time -> aborting");
+                            warn!("Basic credentials did not work last time -> aborting");
                             self.basic_challenge = None;
                             return Err(Error::Authenticate);
                         }
                     } else if header.starts_with("Digest") && !STALE.is_match(header) {
-                        warn!("Digest credentials didn't work last time and server nonce has not expired -> aborting");
+                        warn!("Digest credentials did not work last time and server nonce has not expired -> aborting");
                         self.digest_challenge = None;
                         return Err(Error::Authenticate);
                     }
@@ -110,23 +110,76 @@ impl AuthHandler {
             static ref QOP: Regex = Regex::new(r#"(?i)qop="([[:ascii:]]+)""#).unwrap();
         }
         let mut params = Vec::new();
-        let realm = match REALM.captures(digest_challenge) {
-            Some(capture) => {
-                if let Some(r) = capture.get(1) {
-                    let realm = r.as_str();
-                    params.push(format!("realm={}", Self::quoted_string(realm.to_owned())));
-                    realm
-                } else {
-                    warn! {"No realm provided, aborting Digest auth"};
-                    return Err(Error::Authenticate);
-                }
+
+        let realm = match REALM
+            .captures(digest_challenge)
+            .and_then(|capture| capture.get(1))
+        {
+            Some(r) => {
+                let realm = r.as_str();
+                params.push(format!("realm={}", Self::quoted_string(realm.to_owned())));
+                realm
             }
             None => {
                 warn! {"No realm provided, aborting Digest auth"};
                 return Err(Error::Authenticate);
             }
         };
-        todo!()
+
+        let nonce = match NONCE
+            .captures(digest_challenge)
+            .and_then(|capture| capture.get(1))
+        {
+            Some(n) => {
+                let nonce = n.as_str();
+                params.push(format!("nonce={}", Self::quoted_string(nonce.to_owned())));
+                nonce
+            }
+            None => {
+                warn! {"No nonce provided, aborting Digest auth"};
+                return Err(Error::Authenticate);
+            }
+        };
+
+        if let Some(o) = OPAQUE
+            .captures(digest_challenge)
+            .and_then(|capture| capture.get(1))
+        {
+            let opaque = o.as_str();
+            params.push(format!("opaque={}", Self::quoted_string(opaque.to_owned())));
+        }
+
+        if let Some(a) = ALGORITHM
+            .captures(digest_challenge)
+            .and_then(|capture| capture.get(1))
+        {
+            let algorithm = a.as_str();
+            params.push(format!(
+                "algorithm={}",
+                Self::quoted_string(algorithm.to_owned())
+            ));
+        }
+
+        let method = request.method();
+        let digest_uri = request.uri().path().to_owned();
+        params.push(format!("uri={}", Self::quoted_string(digest_uri)));
+
+        let response = match QOP
+            .captures(digest_challenge)
+            .and_then(|capture| capture.get(1))
+        {
+            Some(q) => {
+                let qop = q.as_str();
+                todo!("Determine qop (it is different and it is also not quoted");
+            }
+            None => {
+                debug!("Using legacy Digest auth");
+                // legacy (backwards compatibility with RFC 2069)
+                todo!();
+            }
+        };
+
+        todo!();
     }
 
     fn quoted_string(s: String) -> String {
